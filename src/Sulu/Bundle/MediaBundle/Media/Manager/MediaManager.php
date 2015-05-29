@@ -28,7 +28,7 @@ use Sulu\Bundle\MediaBundle\Media\Exception\InvalidFileException;
 use Sulu\Bundle\MediaBundle\Media\Exception\MediaNotFoundException;
 use Sulu\Bundle\MediaBundle\Media\FileValidator\FileValidatorInterface;
 use Sulu\Bundle\MediaBundle\Media\FormatManager\FormatManagerInterface;
-use Sulu\Bundle\MediaBundle\Media\Storage\StorageInterface;
+use Sulu\Bundle\MediaBundle\Media\StorageManager\StorageManagerInterface;
 use Sulu\Bundle\MediaBundle\Media\TypeManager\TypeManagerInterface;
 use Sulu\Bundle\TagBundle\Tag\TagManagerInterface;
 use Sulu\Component\Rest\ListBuilder\Doctrine\FieldDescriptor\DoctrineFieldDescriptor;
@@ -90,9 +90,9 @@ class MediaManager implements MediaManagerInterface
     protected $typeManager;
 
     /**
-     * @var StorageInterface
+     * @var StorageManagerInterface
      */
-    protected $storage;
+    protected $storageManager;
 
     /**
      * @var UserRepositoryInterface
@@ -149,7 +149,7 @@ class MediaManager implements MediaManagerInterface
      * @param CollectionRepositoryInterface $collectionRepository
      * @param UserRepositoryInterface $userRepository
      * @param EntityManager $em
-     * @param StorageInterface $storage
+     * @param StorageManagerInterface $storage
      * @param FileValidatorInterface $validator
      * @param FormatManagerInterface $formatManager
      * @param TagManagerInterface $tagManager
@@ -166,7 +166,7 @@ class MediaManager implements MediaManagerInterface
         CollectionRepositoryInterface $collectionRepository,
         UserRepositoryInterface $userRepository,
         EntityManager $em,
-        StorageInterface $storage,
+        StorageManagerInterface $storageManager,
         FileValidatorInterface $validator,
         FormatManagerInterface $formatManager,
         TagManagerInterface $tagManager,
@@ -182,7 +182,7 @@ class MediaManager implements MediaManagerInterface
         $this->collectionRepository = $collectionRepository;
         $this->userRepository = $userRepository;
         $this->em = $em;
-        $this->storage = $storage;
+        $this->storageManager = $storageManager;
         $this->validator = $validator;
         $this->formatManager = $formatManager;
         $this->tagManager = $tagManager;
@@ -531,11 +531,12 @@ class MediaManager implements MediaManagerInterface
             ++$version;
             $this->validator->validate($uploadedFile);
 
-            $data['storageOptions'] = $this->storage->save(
+            $data['storageOptions'] = $this->storageManager->save(
                 $uploadedFile->getPathname(),
                 $uploadedFile->getClientOriginalName(),
                 $version,
-                $currentFileVersion->getStorageOptions()
+                $currentFileVersion->getStorageOptions(),
+                $currentFileVersion->getStorageName()
             );
             $data['name'] = $uploadedFile->getClientOriginalName();
             $data['size'] = intval($uploadedFile->getSize());
@@ -611,10 +612,12 @@ class MediaManager implements MediaManagerInterface
 
         $this->validator->validate($uploadedFile);
 
-        $data['storageOptions'] = $this->storage->save(
+        $data['storageOptions'] = $this->storageManager->save(
             $uploadedFile->getPathname(),
             $uploadedFile->getClientOriginalName(),
-            1
+            1,
+            null,
+            $this->getCollectionDefaultStorageName($data['collection'])
         );
 
         $data['name'] = $uploadedFile->getClientOriginalName();
@@ -771,7 +774,7 @@ class MediaManager implements MediaManagerInterface
     /**
      * @param $collectionId
      *
-     * @return object
+     * @return Collection
      *
      * @throws CollectionNotFoundException
      */
@@ -813,7 +816,7 @@ class MediaManager implements MediaManagerInterface
                     $fileVersion->getName(),
                     $fileVersion->getStorageOptions()
                 );
-                $this->storage->remove($fileVersion->getStorageOptions());
+                $this->storageManager->remove($fileVersion->getStorageOptions(), $fileVersion->getStorageName());
             }
         }
 
@@ -934,6 +937,18 @@ class MediaManager implements MediaManagerInterface
     protected function getUser($userId)
     {
         return $this->userRepository->findUserById($userId);
+    }
+
+    /**
+     * @param $collectionId
+     *
+     * @return string
+     */
+    protected function getCollectionDefaultStorageName($collectionId)
+    {
+        $collection = $this->getCollectionById($collectionId);
+
+        return $collection->getDefaultStorageName();
     }
 
     /**

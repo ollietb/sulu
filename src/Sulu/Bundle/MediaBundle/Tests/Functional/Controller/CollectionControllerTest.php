@@ -46,6 +46,7 @@ class CollectionControllerTest extends SuluTestCase
         ];
 
         $collection->setStyle(json_encode($style));
+        $collection->setDefaultStorageName('local');
 
         // Create Collection Type
         $collectionType = new CollectionType();
@@ -122,6 +123,7 @@ class CollectionControllerTest extends SuluTestCase
         $this->assertNotNull($response->type->id);
         $this->assertEquals('Default Collection Type', $response->type->name);
         $this->assertEquals('Default Collection Type', $response->type->description);
+        $this->assertEquals('local', $response->defaultStorageName);
         $this->assertEquals(date('Y-m-d'), date('Y-m-d', strtotime($response->created)));
         $this->assertEquals(date('Y-m-d'), date('Y-m-d', strtotime($response->changed)));
     }
@@ -212,6 +214,7 @@ class CollectionControllerTest extends SuluTestCase
         $this->assertNotNull($response->type->id);
         $this->assertEquals(date('Y-m-d'), date('Y-m-d', strtotime($response->created)));
         $this->assertEquals(date('Y-m-d'), date('Y-m-d', strtotime($response->changed)));
+        $this->assertEquals('local', $response->defaultStorageName);
         $this->assertEquals('Test Collection 2', $response->title);
         $this->assertEquals('This Description 2 is only for testing', $response->description);
         /*
@@ -318,6 +321,7 @@ class CollectionControllerTest extends SuluTestCase
         $this->assertEquals(date('Y-m-d'), date('Y-m-d', strtotime($response->changed)));
         $this->assertEquals('Test Collection 2', $response->title);
         $this->assertEquals('This Description 2 is only for testing', $response->description);
+        $this->assertEquals('local', $response->defaultStorageName);
         $this->assertEquals($this->collection1->getId(), $response->_embedded->parent->id);
 
         $client = $this->createAuthenticatedClient();

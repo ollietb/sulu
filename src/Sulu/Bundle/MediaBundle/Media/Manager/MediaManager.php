@@ -620,7 +620,7 @@ class MediaManager implements MediaManagerInterface
             $this->getCollectionDefaultStorageName($data['collection'])
         );
 
-        $data['storageOptions'] = $this->storageManager->getDefaultName();
+        $data['storageName'] = $this->getCollectionDefaultStorageName($data['collection']);
         $data['name'] = $uploadedFile->getClientOriginalName();
         $data['size'] = $uploadedFile->getSize();
         $data['mimeType'] = $uploadedFile->getMimeType();
@@ -720,7 +720,7 @@ class MediaManager implements MediaManagerInterface
                         $media->setStorageOptions($value);
                         break;
                     case 'storageName':
-                        $media->getStorageName($value);
+                        $media->setStorageName($value);
                         break;
                     case 'publishLanguages':
                         $media->setPublishLanguages($value);

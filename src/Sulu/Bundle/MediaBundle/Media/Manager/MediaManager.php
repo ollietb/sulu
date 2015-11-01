@@ -14,6 +14,9 @@ namespace Sulu\Bundle\MediaBundle\Media\Manager;
 use Doctrine\DBAL\DBALException;
 use Doctrine\ORM\EntityManager;
 use FFMpeg\FFProbe;
+use Doctrine\ORM\Tools\Pagination\Paginator;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Sulu\Bundle\MediaBundle\Api\Media;
 use Sulu\Bundle\MediaBundle\Entity\Collection;
 use Sulu\Bundle\MediaBundle\Entity\CollectionRepository;
@@ -26,6 +29,7 @@ use Sulu\Bundle\MediaBundle\Media\Exception\CollectionNotFoundException;
 use Sulu\Bundle\MediaBundle\Media\Exception\FileVersionNotFoundException;
 use Sulu\Bundle\MediaBundle\Media\Exception\InvalidFileException;
 use Sulu\Bundle\MediaBundle\Media\Exception\MediaNotFoundException;
+use Sulu\Bundle\MediaBundle\Media\Exception\StorageNotFoundException;
 use Sulu\Bundle\MediaBundle\Media\FileValidator\FileValidatorInterface;
 use Sulu\Bundle\MediaBundle\Media\FormatManager\FormatManagerInterface;
 use Sulu\Bundle\MediaBundle\Media\StorageManager\StorageManagerInterface;
@@ -140,6 +144,11 @@ class MediaManager implements MediaManagerInterface
     private $ffprobe;
 
     /**
+     * @var LoggerInterface
+     */
+    private $logger;
+
+    /**
      * @var int
      */
     public $count;
@@ -149,7 +158,7 @@ class MediaManager implements MediaManagerInterface
      * @param CollectionRepositoryInterface $collectionRepository
      * @param UserRepositoryInterface $userRepository
      * @param EntityManager $em
-     * @param StorageManagerInterface $storage
+     * @param StorageManagerInterface $storageManager
      * @param FileValidatorInterface $validator
      * @param FormatManagerInterface $formatManager
      * @param TagManagerInterface $tagManager
@@ -158,6 +167,7 @@ class MediaManager implements MediaManagerInterface
      * @param SecurityCheckerInterface $securityChecker
      * @param FFProbe $ffprobe
      * @param array $permissions
+     * @param LoggerInterface $logger
      * @param string $downloadPath
      * @param string $maxFileSize
      */
@@ -174,6 +184,7 @@ class MediaManager implements MediaManagerInterface
         TokenStorageInterface $tokenStorage = null,
         SecurityCheckerInterface $securityChecker = null,
         FFProbe $ffprobe,
+        $logger = null,
         $permissions,
         $downloadPath,
         $maxFileSize
@@ -193,6 +204,7 @@ class MediaManager implements MediaManagerInterface
         $this->permissions = $permissions;
         $this->downloadPath = $downloadPath;
         $this->maxFileSize = $maxFileSize;
+        $this->logger = $logger ?: new NullLogger();
 
         $this->initializeFieldDescriptors();
     }
@@ -434,7 +446,12 @@ class MediaManager implements MediaManagerInterface
         $this->count = $this->mediaRepository->count($filter);
 
         foreach ($mediaEntities as $mediaEntity) {
-            $media[] = $this->addFormatsAndUrl(new Media($mediaEntity, $locale, null));
+            try {
+                $media[] = $this->addFormatsAndUrl(new Media($mediaEntity, $locale, null));
+            } catch (StorageNotFoundException $storageNotFoundException) {
+                // catched to ignore failed media
+                $this->logger->error(sprintf('Media %s: ' . $storageNotFoundException->getMessage(), $mediaEntity->getId()));
+            }
         }
 
         return $media;

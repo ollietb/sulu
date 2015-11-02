@@ -276,6 +276,7 @@ class Collection extends ApiWrapper
 
     /**
      * @param $defaultStorageName
+     *
      * @return $this
      */
     public function setDefaultStorageName($defaultStorageName)

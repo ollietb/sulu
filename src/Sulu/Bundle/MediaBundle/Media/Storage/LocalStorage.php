@@ -11,9 +11,9 @@
 
 namespace Sulu\Bundle\MediaBundle\Media\Storage;
 
-use Sulu\Bundle\MediaBundle\Media\Exception\FilenameAlreadyExistsException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Sulu\Bundle\MediaBundle\Media\Exception\FilenameAlreadyExistsException;
 
 class LocalStorage extends AbstractStorage
 {
@@ -105,7 +105,7 @@ class LocalStorage extends AbstractStorage
      */
     public function getDownloadUrl($storageOptions)
     {
-        return null;
+        return;
     }
 
     /**

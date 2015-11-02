@@ -75,7 +75,7 @@ interface CollectionInterface extends AuditableInterface, SecuredEntityInterface
     public function getStyle();
 
     /**
-     * Set setDefaultStorageName
+     * Set setDefaultStorageName.
      *
      * @param string $defaultStorageName
      * @return Collection
@@ -83,7 +83,7 @@ interface CollectionInterface extends AuditableInterface, SecuredEntityInterface
     public function setDefaultStorageName($defaultStorageName);
 
     /**
-     * Get defaultStorageName
+     * Get defaultStorageName.
      *
      * @return string
      */

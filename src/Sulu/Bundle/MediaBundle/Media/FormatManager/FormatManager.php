@@ -25,10 +25,10 @@ use Sulu\Bundle\MediaBundle\Media\Exception\InvalidMimeTypeForPreviewException;
 use Sulu\Bundle\MediaBundle\Media\Exception\MediaException;
 use Sulu\Bundle\MediaBundle\Media\FormatCache\FormatCacheInterface;
 use Sulu\Bundle\MediaBundle\Media\ImageConverter\ImageConverterInterface;
-use Sulu\Bundle\MediaBundle\Media\Video\VideoThumbnailServiceInterface;
-use Symfony\Component\HttpFoundation\File\File as SymfonyFile;
 use Sulu\Bundle\MediaBundle\Media\StorageManager\StorageManagerInterface;
+use Sulu\Bundle\MediaBundle\Media\Video\VideoThumbnailServiceInterface;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\HttpFoundation\File\File as SymfonyFile;
 use Symfony\Component\HttpFoundation\Response;
 
 /**

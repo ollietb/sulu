@@ -164,6 +164,7 @@ abstract class BaseCollection implements CollectionInterface
      * Set defaultStorageName.
      *
      * @param string $defaultStorageName
+     *
      * @return Collection
      */
     public function setDefaultStorageName($defaultStorageName)

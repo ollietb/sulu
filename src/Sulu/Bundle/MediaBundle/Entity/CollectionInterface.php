@@ -78,6 +78,7 @@ interface CollectionInterface extends AuditableInterface, SecuredEntityInterface
      * Set setDefaultStorageName.
      *
      * @param string $defaultStorageName
+     *
      * @return Collection
      */
     public function setDefaultStorageName($defaultStorageName);

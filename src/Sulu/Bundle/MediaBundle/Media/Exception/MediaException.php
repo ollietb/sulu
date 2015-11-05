@@ -187,7 +187,7 @@ class MediaException extends Exception
     const EXCEPTION_FILE_WRITE_ERROR = 5024;
 
     /**
-     * A file has invalid storage options.@global
+     * A file has invalid storage options.
      *
      * @var int
      */

@@ -2,6 +2,8 @@ CHANGELOG for Sulu
 ==================
 
 * dev-develop
+    * FEATURE     #595  [MediaBundle]     Implement Media Flysystem Storage to add Support for S3, Dropbox and co.
+    * FEATURE     #1137 [MediaBundle]     Implement Media Storage Manager for multi storage support.
     * BUGFIX      #1733 [ContactBundle]   Added delete warning and download icon for contact avatar and account logo
     * BUGFIX      #1733 [MediaBundle]     Fixed a few media-selection bugs
     * ENHANCEMENT #1605 [MediaBundle]     Adjust media-selection-overlay title

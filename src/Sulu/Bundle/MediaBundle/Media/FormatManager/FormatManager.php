@@ -18,6 +18,7 @@ use Sulu\Bundle\MediaBundle\Entity\File;
 use Sulu\Bundle\MediaBundle\Entity\FileVersion;
 use Sulu\Bundle\MediaBundle\Entity\Media;
 use Sulu\Bundle\MediaBundle\Entity\MediaRepository;
+use Sulu\Bundle\MediaBundle\Media\Exception\FileResourceNotFoundException;
 use Sulu\Bundle\MediaBundle\Media\Exception\GhostScriptNotFoundException;
 use Sulu\Bundle\MediaBundle\Media\Exception\ImageProxyInvalidImageFormat;
 use Sulu\Bundle\MediaBundle\Media\Exception\ImageProxyMediaNotFoundException;
@@ -459,6 +460,8 @@ class FormatManager implements FormatManagerInterface
      * @param resource $resource
      *
      * @return string
+     *
+     * @throws FileResourceNotFoundException
      */
     protected function createTmpFile($resource)
     {
@@ -467,6 +470,11 @@ class FormatManager implements FormatManagerInterface
         if (is_string($resource)) {
             $resource = fopen($resource, 'r');
         }
+
+        if (!is_resource($resource)) {
+            throw new FileResourceNotFoundException('Could not create tmp file by none resource.');
+        }
+
         stream_copy_to_stream($resource, $handle);
 
         $this->tempFiles[] = $tempFile;

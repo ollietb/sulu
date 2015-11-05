@@ -14,6 +14,7 @@ namespace Sulu\Bundle\MediaBundle\Media\Storage;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Sulu\Bundle\MediaBundle\Media\Exception\FilenameAlreadyExistsException;
+use Sulu\Bundle\MediaBundle\Media\Exception\InvalidStorageOptionsException;
 
 class LocalStorage extends AbstractStorage
 {
@@ -93,11 +94,11 @@ class LocalStorage extends AbstractStorage
         $segment = $this->getStorageOption('segment');
         $fileName = $this->getStorageOption('fileName');
 
-        if ($segment && $fileName) {
-            return $this->uploadPath . '/' . $segment . '/' . $fileName;
+        if (!$segment || !$fileName) {
+            throw new InvalidStorageOptionsException('Media storage "segment" or "filename" not found.');
         }
 
-        return false;
+        return $this->uploadPath . '/' . $segment . '/' . $fileName;
     }
 
     /**

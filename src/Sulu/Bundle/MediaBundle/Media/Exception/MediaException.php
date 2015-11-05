@@ -186,6 +186,13 @@ class MediaException extends Exception
      */
     const EXCEPTION_FILE_WRITE_ERROR = 5024;
 
+    /**
+     * A file has invalid storage options.@global
+     *
+     * @var int
+     */
+    const EXCEPTION_INVALID_STORAGE_OPTIONS = 5025;
+
     public function toArray()
     {
         return [

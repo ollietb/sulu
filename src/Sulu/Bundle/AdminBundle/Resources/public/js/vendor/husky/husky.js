@@ -16387,7 +16387,7 @@ define('aura/ext/components', [],function() {
 
 define('form/util',[], function() {
 
-    
+    'use strict';
 
     var ignoredKeys = [
         'form',
@@ -16399,7 +16399,28 @@ define('form/util',[], function() {
 
         // get form fields
         getFields: function(element) {
-            return $(element).find('input:not([data-form="false"], [type="submit"], [type="button"]), textarea:not([data-form="false"]), select:not([data-form="false"]), *[data-form="true"], *[data-type="collection"], *[contenteditable="true"]');
+            return $(element).find('input:not([data-form="false"], [type="submit"], [type="button"], [type="checkbox"], [type="radio"]), textarea:not([data-form="false"]), select:not([data-form="false"]), *[data-form="true"], *[data-type="collection"], *[contenteditable="true"]');
+        },
+
+        findGroupedFieldsBySelector: function(element, filter) {
+            var groupedFields = {};
+
+            $(element).find(filter).each(function(key, field) {
+                if (!groupedFields[field.name]) {
+                    groupedFields[field.name] = [];
+                }
+                groupedFields[field.name].push(field);
+            });
+
+            return groupedFields;
+        },
+
+        getCheckboxes: function(element) {
+            return this.findGroupedFieldsBySelector(element, 'input[type="checkbox"]');
+        },
+
+        getRadios: function(element) {
+            return this.findGroupedFieldsBySelector(element, 'input[type="radio"]');
         },
 
         /**
@@ -16582,9 +16603,7 @@ define('form/util',[], function() {
         isNumeric: function(str) {
             return str.match(/-?\d+(.\d+)?/);
         }
-
     };
-
 });
 
 /*
@@ -16599,7 +16618,7 @@ define('form/util',[], function() {
 
 define('form/element',['form/util'], function(Util) {
 
-    
+    'use strict';
 
     return function(el, form, options) {
 
@@ -16974,6 +16993,78 @@ define('form/element',['form/util'], function(Util) {
 });
 
 /*
+ * This file is part of Husky Validation.
+ *
+ * (c) MASSIVE ART WebServices GmbH
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.
+ */
+
+define('form/elementGroup',[],function() {
+    'use strict';
+
+    var setMultipleValue = function(elements, values) {
+            elements.forEach(function(element) {
+                values.forEach(function(value) {
+                    if (element.$el.val() === value) {
+                        element.$el.prop('checked', true);
+                    }
+                });
+            });
+        },
+
+        setSingleValue = function(elements, value) {
+            for (var i = -1; ++i < elements.length;) {
+                if (elements[i].$el.val() === value) {
+                    elements[i].$el.prop('checked', true);
+
+                    return;
+                }
+            }
+        };
+
+    return function(elements, singleValue) {
+        return {
+            getValue: function() {
+                var value = [];
+                elements.forEach(function(element) {
+                    if (element.$el.is(':checked')) {
+                        value.push(element.$el.val());
+                    }
+                });
+
+                if (!!singleValue) {
+                    if (value.length > 1) {
+                        throw new Error('Single value element group cannot return more than one value');
+                    }
+
+                    return value[0];
+                }
+
+                return value;
+            },
+
+            setValue: function(values) {
+                if (!!singleValue && !!$.isArray(values)) {
+                    throw new Error('Single value element cannot be set to an array value');
+                }
+
+                if (!singleValue && !$.isArray(values)) {
+                    throw new Error('Field with multiple values cannot be set to a single value');
+                }
+
+                if ($.isArray(values)) {
+                    setMultipleValue.call(this, elements, values);
+                } else {
+                    setSingleValue.call(this, elements, values);
+                }
+            }
+        }
+    };
+});
+
+/*
  * This file is part of the Husky Validation.
  *
  * (c) MASSIVE ART WebServices GmbH
@@ -16987,7 +17078,7 @@ define('form/validation',[
     'form/util'
 ], function(Util) {
 
-    
+    'use strict';
 
     return function(form) {
         var valid,
@@ -17087,7 +17178,7 @@ define('form/mapper',[
     'form/util'
 ], function(Util) {
 
-    
+    'use strict';
 
     return function(form) {
 
@@ -17102,8 +17193,6 @@ define('form/mapper',[
                     this.collectionsSet = {};
                     this.emptyTemplates = {};
                     this.templates = {};
-                    this.elements = [];
-                    this.collectionsInitiated = $.Deferred();
 
                     form.initialized.then(function() {
                         var selector = '*[data-type="collection"]',
@@ -17188,7 +17277,11 @@ define('form/mapper',[
                         if (!!propertyName) {
                             $newChild.propertyName = propertyName;
                             propertyCount = collection.element.getType().getMinOccurs();
-                            this.templates[propertyName] = {tpl: $newChild, collection: collection, emptyTemplate: emptyTemplate};
+                            this.templates[propertyName] = {
+                                tpl: $newChild,
+                                collection: collection,
+                                emptyTemplate: emptyTemplate
+                            };
                             // init default children
                             for (x = collection.element.getType().getMinOccurs() + 1; --x > 0;) {
                                 that.appendChildren.call(this, collection.$element, $newChild).then(function() {
@@ -17265,8 +17358,8 @@ define('form/mapper',[
                 },
 
                 checkFullAndEmpty: function(propertyName) {
-                    var $addButton = $("[data-mapper-add='"+ propertyName +"']"),
-                        $removeButton = $("[data-mapper-remove='"+ propertyName +"']"),
+                    var $addButton = $("[data-mapper-add='" + propertyName + "']"),
+                        $removeButton = $("[data-mapper-remove='" + propertyName + "']"),
                         tpl = this.templates[propertyName].tpl,
                         collection = this.templates[propertyName].collection,
                         fullClass = collection.element.$el.data('mapper-full-class') || 'full',
@@ -17283,7 +17376,7 @@ define('form/mapper',[
                             $addButton.addClass(fullClass);
                             $(collection.element.$el).addClass(fullClass);
 
-                        // else, if no remove is possible add empty style-classes
+                            // else, if no remove is possible add empty style-classes
                         } else if (!collection.element.getType().canRemove(tpl.id)) {
                             $addButton.addClass(emptyClass);
                             $(collection.element.$el).addClass(emptyClass);
@@ -17310,7 +17403,7 @@ define('form/mapper',[
                         type = $el.data('type'),
                         property = $el.data('mapper-property'),
                         element = $el.data('element'),
-                        result, item,
+                        result,
                         filtersAction;
 
 
@@ -17331,19 +17424,30 @@ define('form/mapper',[
                         result = [];
                         $.each($el.children(), function(key, value) {
                             if (!collection || collection.tpl === value.dataset.mapperPropertyTpl) {
-                                item = that.getData($(value));
-                                    // only set mapper-id if explicitly set
+                                var $elements = $(value).find('*[data-mapper-property]'),
+                                    elements = [],
+                                    data = {};
+
+                                $elements.each(function(key, child) {
+                                    elements.push($(child).data('element'));
+                                });
+
+                                elements.forEach(function(element){
+                                    that.addDataFromElement.call(this, element, data, returnMapperId);
+                                });
+
+                                // only set mapper-id if explicitly set
                                 if (!!returnMapperId) {
-                                    item.mapperId = value.dataset.mapperId;
+                                    data.mapperId = value.dataset.mapperId;
                                 }
 
-                                var keys = Object.keys(item);
+                                var keys = Object.keys(data);
                                 if (keys.length === 1) { // for value only collection
-                                    if (item[keys[0]] !== '') {
-                                        result.push(item[keys[0]]);
+                                    if (data[keys[0]] !== '') {
+                                        result.push(data[keys[0]]);
                                     }
-                                } else if (!filtersAction || filtersAction(item)) {
-                                    result.push(item);
+                                } else if (!filtersAction || filtersAction(data)) {
+                                    result.push(data);
                                 }
                             }
                         }.bind(this));
@@ -17355,7 +17459,6 @@ define('form/mapper',[
                     // remember first child remove the rest
                     var $element = collectionElement.$element,
                         $child = collectionElement.$child,
-                        $emptyTemplate,
                         count = collection.length,
                         dfd = $.Deferred(),
                         resolve = function() {
@@ -17438,7 +17541,7 @@ define('form/mapper',[
                     }
 
                     // push element to global array
-                    this.elements.push($template);
+                    this.collections.push($template);
 
                     return dfd.promise();
                 },
@@ -17449,9 +17552,9 @@ define('form/mapper',[
                  * @return {Object|null} the dom object or null
                  **/
                 getElementByMapperId: function(mapperId) {
-                    for (var i = -1, length = this.elements.length; ++i < length;) {
-                        if (this.elements[i].data('mapper-id') === mapperId) {
-                            return this.elements[i];
+                    for (var i = -1, length = this.collections.length; ++i < length;) {
+                        if (this.collections[i].data('mapper-id') === mapperId) {
+                            return this.collections[i];
                         }
                     }
                     return null;
@@ -17464,11 +17567,11 @@ define('form/mapper',[
                  **/
                 deleteElementByMapperId: function(mapperId) {
                     var i, length, templateName;
-                    for (i = -1, length = this.elements.length; ++i < length;) {
-                        if (this.elements[i].data('mapper-id').toString() === mapperId.toString()) {
-                            templateName = this.elements[i].attr('data-mapper-property-tpl');
-                            this.elements[i].remove();
-                            this.elements.splice(i, 1);
+                    for (i = -1, length = this.collections.length; ++i < length;) {
+                        if (this.collections[i].data('mapper-id').toString() === mapperId.toString()) {
+                            templateName = this.collections[i].attr('data-mapper-property-tpl');
+                            this.collections[i].remove();
+                            this.collections.splice(i, 1);
                             return templateName;
                         }
                     }
@@ -17483,46 +17586,6 @@ define('form/mapper',[
 
                     // remove element
                     $element.remove();
-                },
-
-                getData: function($el, returnMapperId) {
-                    if (!$el) {
-                        $el = form.$el;
-                    }
-
-                    var data = { }, $childElement, property, parts,
-
-                    // search field with mapper property
-                        selector = '*[data-mapper-property]',
-                        $elements = $el.find(selector);
-
-                    // do it while elements exists
-                    while ($elements.length > 0) {
-                        // get first
-                        $childElement = $($elements.get(0));
-                        property = $childElement.data('mapper-property');
-
-                        if ($.isArray(property)) {
-                            $.each(property, function(i, prop) {
-                                data[prop.data] = that.processData.call(this, $childElement, prop, returnMapperId);
-                            }.bind(this));
-                        } else if (property.match(/.*\..*/)) {
-                            parts = property.split('.');
-                            data[parts[0]] = {};
-                            data[parts[0]][parts[1]] = that.processData.call(this, $childElement);
-                        } else {
-                            // process it
-                            data[property] = that.processData.call(this, $childElement);
-                        }
-
-                        // remove element itself
-                        $elements = $elements.not($childElement);
-
-                        // remove child elements
-                        $elements = $elements.not($childElement.find(selector));
-                    }
-
-                    return data;
                 },
 
                 setData: function(data, $el) {
@@ -17582,6 +17645,9 @@ define('form/mapper',[
                                 that.setCollectionData.call(this, value, collection).then(function() {
                                     resolve();
                                 });
+                            } else if (form.elementGroups.hasOwnProperty(key)) {
+                                form.elementGroups[key].setValue(value);
+                                resolve();
                             } else {
                                 // search field with mapper property
                                 selector = '*[data-mapper-property="' + key + '"]';
@@ -17613,8 +17679,26 @@ define('form/mapper',[
                     }
 
                     return dfd.promise();
-                }
+                },
 
+                addDataFromElement: function(element, data, returnMapperId) {
+                    var $element = element.$el,
+                        property = $element.data('mapper-property'),
+                        parts;
+
+                    if ($.isArray(property)) {
+                        $.each(property, function(i, prop) {
+                            data[prop.data] = that.processData.call(this, $element, prop, returnMapperId);
+                        }.bind(this));
+                    } else if (property.match(/.*\..*/)) {
+                        parts = property.split('.');
+                        data[parts[0]] = {};
+                        data[parts[0]][parts[1]] = that.processData.call(this, $element);
+                    } else {
+                        // process it
+                        data[property] = that.processData.call(this, $element);
+                    }
+                }
             },
 
         // define mapper interface
@@ -17628,11 +17712,23 @@ define('form/mapper',[
 
                 /**
                  * extracts data from $element or default form element
-                 *  @param {Object} [$el=undefined] element to select data from
-                 *  @param {Boolean} [returnMapperId=false] returnMapperId
+                 * @param {Object} [$el=undefined] element to select data from
+                 * @param {Boolean} [returnMapperId=false] returnMapperId
                  */
                 getData: function($el, returnMapperId) {
-                    return that.getData.call(this, $el, returnMapperId);
+                    var data = {};
+
+                    form.elements.forEach(function(element) {
+                        that.addDataFromElement.call(this, element, data, returnMapperId);
+                    }.bind(this));
+
+                    for(var key in form.elementGroups) {
+                        if (form.elementGroups.hasOwnProperty(key)) {
+                            data[key] = form.elementGroups[key].getValue();
+                        }
+                    }
+
+                    return data;
                 },
 
                 addCollectionFilter: function(name, callback) {
@@ -17664,7 +17760,7 @@ define('form/mapper',[
                     }
                     // check if empty template is set and lookup in dom
                     if (template.emptyTemplate) {
-                        $emptyTpl = $(element).find('#'+template.emptyTemplate);
+                        $emptyTpl = $(element).find('#' + template.emptyTemplate);
                         if ($emptyTpl) {
                             $emptyTpl.remove();
                         }
@@ -17696,7 +17792,7 @@ define('form/mapper',[
                         templateName = that.deleteElementByMapperId.call(this, mapperId);
 
                     // check if collection still has elements with propertyName, else render empty Template
-                    if (form.$el.find('*[data-mapper-property-tpl='+templateName+']').length < 1) {
+                    if (form.$el.find('*[data-mapper-property-tpl=' + templateName + ']').length < 1) {
                         // get collection with is owner of templateName
                         for (i in this.templates) {
                             // if emptyTemplates is set
@@ -17732,6 +17828,7 @@ require.config({
         'form/mapper': 'js/mapper',
         'form/validation': 'js/validation',
         'form/element': 'js/element',
+        'form/elementGroup': 'js/elementGroup',
         'form/util': 'js/util',
 
         'type/default': 'js/types/default',
@@ -17762,12 +17859,13 @@ require.config({
 
 define('form',[
     'form/element',
+    'form/elementGroup',
     'form/validation',
     'form/mapper',
     'form/util'
-], function(Element, Validation, Mapper, Util) {
+], function(Element, ElementGroup, Validation, Mapper, Util) {
 
-    
+    'use strict';
 
     return function(el, options) {
         var defaults = {
@@ -17822,7 +17920,15 @@ define('form',[
 
                     $.each(Util.getFields($el || this.$el), function(key, value) {
                         requireCounter++;
-                        that.addField.call(this, value, false).initialized.then(resolve.bind(this));
+                        that.addField.call(this, value).initialized.then(resolve.bind(this));
+                    }.bind(this));
+
+                    $.each(Util.getCheckboxes($el || this.$el), function(key, value) {
+                        that.addGroupedFields.call(this, key, value, false);
+                    }.bind(this));
+
+                    $.each(Util.getRadios($el || this.$el), function(key, value) {
+                        that.addGroupedFields.call(this, key, value, true);
                     }.bind(this));
 
                     return dfd.promise();
@@ -17844,12 +17950,26 @@ define('form',[
 
                     this.elements.push(element);
                     Util.debug('Element created', options);
+
                     return element;
+                },
+
+                addGroupedFields: function(key, selectors, single) {
+                    this.elementGroups[key] = new ElementGroup(
+                        selectors.map(function(selector) {
+                            var $element = $(selector),
+                                options = Util.parseData($element, '', this.options);
+
+                            return new Element($element, this, options);
+                        }.bind(this)),
+                        single
+                    );
                 }
             },
 
             result = {
                 elements: [],
+                elementGroups: {},
                 options: {},
                 validation: false,
                 mapper: false,
@@ -17912,7 +18032,7 @@ define('type/default',[
     'form/util'
 ],function(Util) {
 
-    
+    'use strict';
 
     return function($el, defaults, options, name, typeInterface, form) {
 
@@ -17988,7 +18108,7 @@ define('type/string',[
     'type/default'
 ], function(Default) {
 
-    
+    'use strict';
 
     return function($el, options) {
         var defaults = { },
@@ -18022,7 +18142,7 @@ define('type/date',[
     'form/util'
 ], function(Default, Util) {
 
-    
+    'use strict';
 
     return function($el, options) {
         var defaults = {
@@ -18084,7 +18204,7 @@ define('type/decimal',[
     'type/default'
 ], function(Default) {
 
-    
+    'use strict';
 
     return function($el, options) {
         var defaults = {
@@ -18142,7 +18262,7 @@ define('type/hiddenData',[
     'type/default'
 ], function(Default) {
 
-    
+    'use strict';
 
     return function($el, options) {
         var defaults = {
@@ -18196,7 +18316,7 @@ define('type/mappingData',[
     'type/default'
 ], function(Default) {
 
-    
+    'use strict';
 
     return function($el, options) {
         var defaults = {
@@ -18271,7 +18391,7 @@ define('type/email',[
     'form/util'
 ], function(Default, Util) {
 
-    
+    'use strict';
 
     return function($el, options) {
         var defaults = {
@@ -18313,7 +18433,7 @@ define('type/url',[
     'form/util'
 ], function(Default, Util) {
 
-    
+    'use strict';
 
     return function($el, options) {
         var defaults = {
@@ -18357,7 +18477,7 @@ define('type/label',[
     'type/default'
 ], function(Default) {
 
-    
+    'use strict';
 
     return function($el, options) {
         var defaults = {
@@ -18420,7 +18540,7 @@ define('type/select',[
     'form/util'
 ], function(Default, Util) {
 
-    
+    'use strict';
 
     return function($el, options) {
         var defaults = {
@@ -18480,7 +18600,7 @@ define('type/readonly-select',[
     'type/default'
 ], function(Default) {
 
-    
+    'use strict';
 
     return function($el, options) {
         var defaults = {
@@ -18561,7 +18681,7 @@ define('type/collection',[
     'type/default'
 ], function(Default) {
 
-    
+    'use strict';
 
     return function($el, options) {
         var defaults = {
@@ -18619,7 +18739,7 @@ define('type/attributes',[
     'type/default'
 ], function(Default) {
 
-    
+    'use strict';
 
     return function($el, options) {
         var defaults = {
@@ -18659,7 +18779,7 @@ define('type/attributes',[
 
 define('validator/default',[],function() {
 
-    
+    'use strict';
 
     return function($el, form, defaults, options, name) {
 
@@ -18723,7 +18843,7 @@ define('validator/min',[
     'validator/default'
 ], function(Default) {
 
-    
+    'use strict';
 
     return function($el, form, element, options) {
         var defaults = {
@@ -18757,7 +18877,7 @@ define('validator/max',[
     'validator/default'
 ], function(Default) {
 
-    
+    'use strict';
 
     return function($el, form, element, options) {
         var defaults = {
@@ -18791,7 +18911,7 @@ define('validator/minLength',[
     'validator/default'
 ], function(Default) {
 
-    
+    'use strict';
 
     return function($el, form, element, options) {
         var defaults = {
@@ -18825,7 +18945,7 @@ define('validator/maxLength',[
     'validator/default'
 ], function(Default) {
 
-    
+    'use strict';
 
     return function($el, form, element, options) {
         var defaults = {
@@ -18859,7 +18979,7 @@ define('validator/required',[
     'validator/default'
 ], function(Default) {
 
-    
+    'use strict';
 
     return function($el, form, element, options) {
         var defaults = { },
@@ -18876,7 +18996,7 @@ define('validator/required',[
                         if ('object' === typeof val) {
                             for (i in val) {
                                 if (val.hasOwnProperty(i)) {
-                                    if (this.validate(val[i]), true) {
+                                    if (this.validate(val[i], true)) {
                                         return true;
                                     }
                                 }
@@ -18919,7 +19039,7 @@ define('validator/unique',[
     'form/util'
 ], function(Default, Util) {
 
-    
+    'use strict';
 
     return function($el, form, element, options) {
 
@@ -19027,7 +19147,7 @@ define('validator/equal',[
     'validator/default'
 ], function(Default) {
 
-    
+    'use strict';
 
     return function($el, form, element, options) {
         var defaults = {
@@ -19132,7 +19252,7 @@ define('validator/regex',[
     'validator/default'
 ], function(Default) {
 
-    
+    'use strict';
 
     return function($el, form, element, options) {
         var defaults = {
@@ -29267,7 +29387,7 @@ define('__component__$navigation@husky',[],function() {
                 domObject = item.domObject,
                 parent;
 
-            if ($(domObject).hasClass('is-selected')) {
+            if (this.sandbox.dom.hasClass(domObject, 'is-selected')) {
                 return;
             }
 
@@ -29515,6 +29635,7 @@ define('__component__$navigation@husky',[],function() {
          * @param {Object} options Extends the item
          */
         selectSubItem: function(event, customTarget, emit, options) {
+
             if (!!event) {
                 event.preventDefault();
             } else {
@@ -30153,7 +30274,7 @@ define('husky_components/datagrid/decorators/table-view',[],function() {
             cssClass: '',
             thumbnailFormat: '50x50',
             showHead: true,
-            hideChildrenAtBeginning: false,
+            hideChildrenAtBeginning: true,
             openChildId: null,
             highlightSelected: false,
             icons: [],
@@ -31049,10 +31170,6 @@ define('husky_components/datagrid/decorators/table-view',[],function() {
          * @returns {boolean}
          */
         containerIsOverflown: function() {
-            if (!this.table.$container) {
-                return false;
-            }
-
             return this.sandbox.dom.get(this.table.$container, 0).scrollWidth > this.sandbox.dom.width(this.table.$container);
         },
 
@@ -31097,7 +31214,7 @@ define('husky_components/datagrid/decorators/table-view',[],function() {
                             $contentContainer = this.sandbox.dom.find('.' + constants.textContainerClass, cell.$el);
                             if (crop === true) {
                                 content = this.sandbox.util.cropMiddle(cell.originalContent, this.options.croppedMaxLength);
-                                this.sandbox.dom.attr($contentContainer, 'title', cell.originalContent);
+                                this.sandbox.dom.attr($contentContainer, 'title', cell.originalContent);;
                                 this.tableCropped = true;
                                 this.cropBreakPoint = this.sandbox.dom.width(this.table.$container);
                             } else {
@@ -32786,8 +32903,7 @@ define('husky_components/datagrid/decorators/infinite-scroll-pagination',[],func
                 RADIO: 'radio',
                 COUNT: 'count',
                 TRANSLATION: 'translation',
-                NUMBER: 'number',
-                CURRENCY: 'currency'
+                NUMBER: 'number'
             },
 
             decorators = {
@@ -32850,16 +32966,6 @@ define('husky_components/datagrid/decorators/infinite-scroll-pagination',[],func
                  */
                 number: function(val) {
                     return this.sandbox.numberFormat(val, 'n');
-                },
-
-
-                /**
-                 * Formats a float as culture specific currency
-                 * @param val {String} the string to format
-                 * @returns {String}
-                 */
-                currency: function(val) {
-                    return this.sandbox.numberFormat(val, 'c');
                 },
 
                 /**
@@ -36079,10 +36185,6 @@ define('__component__$toolbar@husky',[],function() {
             markedClass: 'marked'
         },
 
-        selectors = {
-            dropdownMenu: '.toolbar-dropdown-menu'
-        },
-
         /** templates container */
         templates = {
             skeleton: [
@@ -36173,22 +36275,12 @@ define('__component__$toolbar@husky',[],function() {
          * event to change a buttons selected dropdown-item
          *
          * @event husky.toolbar.[INSTANCE_NAME.]item.change
-         * @param {string} buttonId The id of the button
-         * @param {string} itemId The id or the index of the dropdown-item
-         * @param {boolean} executeCallback If true callback of dropdown item gets executed
+         * @param {string} button The id of the button
+         * @param {string} item the id or the index of the dropdown-item
+         * @param {boolean} executeCallback if true callback of dropdown item gets executed
          */
         ITEM_CHANGE = function() {
             return createEventName.call(this, 'item.change');
-        },
-
-        /**
-         * Event to reset a buttons and it's dropdown-items into original state.
-         *
-         * @event husky.toolbar.[INSTANCE_NAME.]item.reset
-         * @param {string} buttonId The id of the button
-         */
-        ITEM_RESET = function() {
-            return createEventName.call(this, 'item.reset');
         },
 
         /**
@@ -36336,9 +36428,20 @@ define('__component__$toolbar@husky',[],function() {
 
             this.sandbox.on(ITEM_UNMARK.call(this), unmarkItem.bind(this));
 
-            this.sandbox.on(ITEM_CHANGE.call(this), changeButton.bind(this));
-
-            this.sandbox.on(ITEM_RESET.call(this), resetButton.bind(this));
+            this.sandbox.on(ITEM_CHANGE.call(this), function(button, id, executeCallback) {
+                if (!!this.items[button]) {
+                    this.items[button].initialized.then(function() {
+                        var index = getItemIndexById.call(this, id, this.items[button]);
+                        changeMainListItem.call(this, this.items[button].$el, this.items[button].dropdownItems[index]);
+                        this.sandbox.emit(ITEM_MARK.call(this), this.items[button].dropdownItems[index].id);
+                        if (executeCallback === true || !!this.items[button].dropdownItems[index].callback) {
+                            if (typeof this.items[button].dropdownItems[index].callback === 'function') {
+                                this.items[button].dropdownItems[index].callback();
+                            }
+                        }
+                    }.bind(this));
+                }
+            }.bind(this));
 
             this.sandbox.on(BUTTON_SET.call(this), function(button, newData) {
                 changeMainListItem.call(this, this.items[button].$el, newData);
@@ -36359,50 +36462,6 @@ define('__component__$toolbar@husky',[],function() {
                         this.sandbox.dom.hide(this.sandbox.dom.find('.dropdown-toggle', this.items[button].$el));
                     }
                 }
-            }.bind(this));
-        },
-
-        /**
-         * Changes a button text and icon.
-         *
-         * @param {String} button
-         * @param {String|Number} itemId
-         * @param {Bool} executeCallback
-         */
-        changeButton = function(buttonId, itemId, executeCallback) {
-            // check if button exists
-            if (!this.items[buttonId]) {
-                return;
-            }
-
-            var button = this.items[buttonId];
-
-            button.initialized.then(function() {
-                // update icon
-                var index = getItemIndexById.call(this, itemId, button);
-                changeMainListItem.call(this, button.$el, button.dropdownItems[index]);
-                this.sandbox.emit(ITEM_MARK.call(this), button.dropdownItems[index].id);
-                if (executeCallback === true || !!button.dropdownItems[index].callback
-                    && typeof button.dropdownItems[index].callback === 'function'
-                ) {
-                    button.dropdownItems[index].callback();
-                }
-            }.bind(this));
-        },
-
-        /**
-         * Resets button to its original state.
-         *
-         * @param {String} buttonId
-         */
-        resetButton = function(buttonId) {
-            // check if button exists
-            if (!this.items[buttonId]) {
-                return;
-            }
-
-            this.items[buttonId].initialized.then(function() {
-                resetMainListItem.call(this, this.items[buttonId].$el);
             }.bind(this));
         },
 
@@ -36470,6 +36529,7 @@ define('__component__$toolbar@husky',[],function() {
          * @param highlight {boolean} if true a highlight effect is played
          */
         toggleEnabled = function(enabled, id, highlight) {
+
             // check if toolbar has an item with specified id
             if (!this.items[id]) {
                 return;
@@ -36595,7 +36655,7 @@ define('__component__$toolbar@husky',[],function() {
 
                 if (!visible) {
                     this.sandbox.dom.addClass($list, 'is-expanded');
-                    this.sandbox.dom.show(this.sandbox.dom.find(selectors.dropdownMenu, $list));
+                    this.sandbox.dom.show(this.sandbox.dom.find('.toolbar-dropdown-menu', $list));
                     // TODO: check if dropdown overlaps screen: set ul to .right-aligned
 
                     // on every click remove sub-menu
@@ -36630,7 +36690,7 @@ define('__component__$toolbar@husky',[],function() {
          */
         hideDropdowns = function() {
             this.sandbox.dom.removeClass(this.sandbox.dom.find('.is-expanded', this.$el), 'is-expanded');
-            this.sandbox.dom.hide(this.$find(selectors.dropdownMenu));
+            this.sandbox.dom.hide(this.$find('.toolbar-dropdown-menu'));
             if (this.options.responsive === true) {
                 unlockToolbarScroll.call(this);
             }
@@ -36643,6 +36703,7 @@ define('__component__$toolbar@husky',[],function() {
          * @param event
          */
         selectItem = function(event) {
+
             this.sandbox.dom.stopPropagation(event);
             this.sandbox.dom.preventDefault(event);
 
@@ -36672,6 +36733,7 @@ define('__component__$toolbar@husky',[],function() {
          * @param $parent
          */
         triggerSelectEvent = function(item, $parent) {
+
             var parentItem,
                 original = item._original || item,
                 $content = this.sandbox.dom.find('.content', this.items[item.id].$el);
@@ -36705,42 +36767,7 @@ define('__component__$toolbar@husky',[],function() {
         },
 
         /**
-         * Resets the list items icon and title. Tries to set to default, otherwise to null.
-         *
-         * @param listElement
-         */
-        resetMainListItem = function(listElement) {
-            var listItems = this.sandbox.dom.find('span', listElement),
-                itemId = this.sandbox.dom.data(listElement).id,
-                item = this.items[itemId];
-
-            // reset icon
-            this.sandbox.dom.removeClass(listItems.eq(0), '');
-            item.icon = item.defaultIcon;
-            if (!!item.defaultIcon) {
-                this.sandbox.dom.addClass(listItems.eq(0), createIconSupportClass.call(this, item));
-            }
-
-            // reset title
-            item.title = this.sandbox.translate(item.defaultTitle);
-            this.sandbox.dom.html(listItems.eq(1), item.title);
-            this.items[itemId].title = item.title;
-
-            // remove marked class from dropdown-item
-            if (!!item.dropdownItems) {
-                this.sandbox.dom.removeClass(selectors.dropdownMenu + ' li', 'marked');
-            }
-
-            if (this.options.responsive === true) {
-                updateOverflow.call(this);
-            }
-
-            this.sandbox.emit(BUTTON_CHANGED.call(this));
-        },
-
-        /**
-         * Changes the list items icon and title.
-         *
+         * changes the list items icon and title
          * @param listElement
          * @param item
          */
@@ -37006,7 +37033,7 @@ define('__component__$toolbar@husky',[],function() {
         deleteDropdown = function(button) {
             if (!!button.dropdownItems) {
                 // remove the related stuff
-                this.sandbox.dom.remove(this.sandbox.dom.find(selectors.dropdownMenu, button.$el));
+                this.sandbox.dom.remove(this.sandbox.dom.find('.toolbar-dropdown-menu', button.$el));
                 this.sandbox.dom.hide(this.sandbox.dom.find('.dropdown-toggle', button.$el));
 
                 // delete JS related stuff
@@ -37158,10 +37185,6 @@ define('__component__$toolbar@husky',[],function() {
 
                 var dfd = this.sandbox.data.deferred();
 
-                // set default title and icon
-                item.defaultTitle = item.title;
-                item.defaultIcon = item.icon;
-
                 // save to items array
                 this.items[item.id] = item;
                 this.items[item.id].initialized = dfd.promise();
@@ -37191,6 +37214,7 @@ define('__component__$toolbar@husky',[],function() {
 
                 // if has-search is true render a search bar, else render the item normally
                 if (item.hasSearch === true) {
+
                     insertSearch.call(this, $listItem);
                 } else {
                     if (!!item.icon) {
@@ -40438,9 +40462,8 @@ define('__component__$password-fields@husky',[], function() {
  * @params {Boolean} [options.tooltipTranslations.unpublished] translation-keys for unpublished
  * @params {Boolean} [options.tooltipTranslations.internalLink] translation-keys for internal-link
  * @params {Boolean} [options.tooltipTranslations.externalLink] translation-keys for external-link
- * @params {Callback} [options.actionCallback] callback which will be called on action
  */
-define('__component__$column-navigation@husky',[],function() {
+define('__component__$column-navigation@husky',[], function() {
 
     'use strict';
 
@@ -40479,8 +40502,7 @@ define('__component__$column-navigation@husky',[],function() {
                 unpublished: 'public.unpublished',
                 internalLink: 'public.internal-link',
                 externalLink: 'public.external-link'
-            },
-            actionCallback: null
+            }
         },
 
         constants = {
@@ -40546,7 +40568,7 @@ define('__component__$column-navigation@husky',[],function() {
             item: [
                 '<li data-id="<%= id %>" class="' + constants.columnItemClass + '">',
                 '    <span class="' + constants.iconsLeftClass + '"></span>',
-                '    <span title="<%= title %>" class="' + constants.itemTextClass + '"><%= title %></span>',
+                '    <span title="<%= title %>" class="' + constants.itemTextClass + '"><%= title%></span>',
                 '    <span class="' + constants.iconsRightClass + '"></span>',
                 '</li>'
             ].join(''),
@@ -40686,15 +40708,6 @@ define('__component__$column-navigation@husky',[],function() {
          */
         RESIZE = function() {
             return createEventName.call(this, 'resize');
-        },
-
-        /**
-         * @event husky.column-navigation.set-options
-         * @description the element will be rerendered with given options
-         * @param {{url, selected}} options
-         */
-        SET_OPTIONS = function() {
-            return createEventName.call(this, 'set-options');
         },
 
         createContext = function(column) {
@@ -41080,7 +41093,7 @@ define('__component__$column-navigation@husky',[],function() {
          */
         renderItem: function(data) {
             var $item = this.sandbox.dom.createElement(this.sandbox.util.template(templates.item)({
-                    title: this.sandbox.translate(this.sandbox.util.escapeHtml(data[this.options.titleName])),
+                    title: this.sandbox.util.escapeHtml(data[this.options.titleName]),
                     id: data[this.options.idName]
                 })),
                 disabled = (this.options.disableIds.indexOf(data[this.options.idName]) !== -1);
@@ -41332,22 +41345,6 @@ define('__component__$column-navigation@husky',[],function() {
             }
         },
 
-        unbindDOMEvents: function() {
-            this.$el.off();
-            if (!!this.dom.$add) {
-                this.dom.$add.off();
-            }
-            if (!!this.dom.$container) {
-                this.dom.$container.off();
-            }
-            if (!!this.dom.$wrapper) {
-                this.dom.$wrapper.off();
-            }
-            if (!!this.dom.$ok) {
-                this.dom.$ok.off();
-            }
-        },
-
         /**
          * Handles the key-down event of a order-input
          * @param event
@@ -41358,7 +41355,7 @@ define('__component__$column-navigation@husky',[],function() {
             }
             if (event.keyCode === 27) { // cancel on esc
                 var column = this.sandbox.dom.attr(this.sandbox.dom.parents(
-                    event.currentTarget, '.' + constants.columnClass), 'data-column'),
+                        event.currentTarget, '.' + constants.columnClass), 'data-column'),
                     item = this.sandbox.dom.attr(this.sandbox.dom.parents(
                         event.currentTarget, '.' + constants.columnItemClass), 'data-id');
                 this.resetOrderInput(column, item);
@@ -41524,21 +41521,10 @@ define('__component__$column-navigation@husky',[],function() {
         },
 
         bindCustomEvents: function() {
-            if (!!this.customEvents) {
-                return;
-            }
-
             this.sandbox.on(BREADCRUMB.call(this), this.getBreadCrumb.bind(this));
             this.sandbox.on(UNMARK.call(this), this.unmark.bind(this));
             this.sandbox.on(HIGHLIGHT.call(this), this.highlight.bind(this));
             this.sandbox.on(ORDER.call(this), this.startOrderModeItem.bind(this));
-            this.sandbox.on(SET_OPTIONS.call(this), function(options) {
-                this.unbindDOMEvents();
-                this.$el.children().remove();
-                this.options = this.sandbox.util.extend(true, {}, this.options, options);
-
-                this.initialize();
-            }.bind(this));
 
             this.sandbox.on('husky.dropdown.' + this.options.instanceName + '.settings.dropdown.item.click', this.dropdownItemClicked.bind(this));
 
@@ -41548,8 +41534,6 @@ define('__component__$column-navigation@husky',[],function() {
                     this.setOverflowClass();
                 }.bind(this));
             }
-
-            this.customEvents = true;
         },
 
         /**
@@ -41841,7 +41825,7 @@ define('__component__$column-navigation@husky',[],function() {
                 }
 
                 // scroll for add column
-                if (!selectedItem[this.options.hasSubName]) {
+                if (!selectedItem.hasSub) {
                     this.insertAddColumn(selectedItem, column);
                     this.scrollIfNeeded(column);
                     this.setOverflowClass();
@@ -41929,11 +41913,7 @@ define('__component__$column-navigation@husky',[],function() {
             }
 
             this.sandbox.dom.stopPropagation(event);
-            if (!!this.options.actionCallback) {
-                this.options.actionCallback(item)
-            } else {
-                this.sandbox.emit(ACTION.call(this), item);
-            }
+            this.sandbox.emit(ACTION.call(this), item);
         }
     };
 });
@@ -42706,7 +42686,7 @@ define('__component__$overlay@husky',[], function() {
             // emit language-changed-event when language dropdown gets changed
             this.sandbox.on('husky.select.' + this.options.instanceName + '.selected.item', function(localeIndex) {
                 this.sandbox.emit(LANGUAGE_CHANGED.call(this),
-                    this.slides[this.activeSlide].languageChanger.locales[localeIndex], //selected locale
+                    this.options.languageChanger.locales[localeIndex], //selected locale
                     this.activeTab
                 );
             }.bind(this));
@@ -44447,7 +44427,6 @@ define('__component__$dropzone@husky',[], function() {
  * @params {String} [options.skin] name of the skin to use. Currently 'phone', 'password', 'url', 'email', 'date', 'time', 'color'. Each skin brings it's own default values. For example the password skin has automatically inputType: 'password'
  * @params {Object} [options.datepickerOptions] config-object to pass to the datepicker component - you can find possible values here http://bootstrap-datepicker.readthedocs.org/en/release/options.html
  * @params {Object} [options.colorPickerOptions] config-object to pass to the colorpicker component
- * @params {Object} [options.lockOptions] config-object to pass to the lock component
  * @params {String} [options.frontIcon] name of icon to display in front
  * @params {String} [options.frontText] text to display in front
  * @params {String} [options.frontHtml] html to display in front
@@ -44476,9 +44455,6 @@ define('__component__$input@husky',[], function() {
                 todayHighlight: true
             },
             colorPickerOptions: {},
-            lockOptions: {
-                locked: false
-            },
             frontIcon: null,
             frontText: null,
             frontHtml: null,
@@ -44499,9 +44475,7 @@ define('__component__$input@husky',[], function() {
             colorFieldClass: 'color-field',
             colorpickerClass: 'colorpicker',
             datepickerClass: 'pickdate',
-            linkClickableClass: 'clickable',
-            lockIconClass: 'fa-lock',
-            unlockIconClass: 'fa-unlock'
+            linkClickableClass: 'clickable'
         },
 
         templates = {
@@ -44524,15 +44498,6 @@ define('__component__$input@husky',[], function() {
             },
             email: function() {
                 this.renderLink('mailto:');
-            },
-            lock: function() {
-                this.renderLock();
-            }
-        },
-
-        frontClickedCallbacks = {
-            lock: function(event) {
-                this.lockClickedCallback(event);
             }
         },
 
@@ -44565,10 +44530,6 @@ define('__component__$input@husky',[], function() {
                 frontIcon: 'clock-o',
                 placeholder: 'HH - MM',
                 renderMethod: 'time'
-            },
-            lock: {
-                frontIcon: 'lock',
-                renderMethod: 'lock'
             }
         },
 
@@ -44584,14 +44545,6 @@ define('__component__$input@husky',[], function() {
          */
         INITIALIZED = function() {
             return createEventName.call(this, 'initialized');
-        },
-
-        LOCKED = function() {
-            return createEventName.call(this, 'locked');
-        },
-
-        UNLOCKED = function() {
-            return createEventName.call(this, 'unlocked');
         },
 
         /** returns normalized event names */
@@ -44651,20 +44604,6 @@ define('__component__$input@husky',[], function() {
          * Binds Dom-related events
          */
         bindDomEvents: function() {
-            this.sandbox.dom.on(this.$el, 'change', function(event) {
-                event.stopPropagation();
-                event.preventDefault();
-
-                this.$el.trigger('change');
-            }.bind(this), 'input');
-
-            this.sandbox.dom.on(this.$el.find('.' + constants.frontClass), 'click', function(event) {
-                // check if input has custom functionality, when front is clicked
-                if (frontClickedCallbacks.hasOwnProperty(this.options.skin)) {
-                    frontClickedCallbacks[this.options.skin].call(this, event);
-                }
-            }.bind(this));
-
             this.sandbox.dom.on(this.$el, 'click', function() {
                 this.sandbox.dom.focus(this.input.$input);
             }.bind(this));
@@ -44780,81 +44719,6 @@ define('__component__$input@husky',[], function() {
             this.linkProtocol = protocol;
             this.sandbox.dom.on(this.input.$input, 'keyup', this.changeFrontLink.bind(this));
             this.changeFrontLink();
-        },
-
-        /**
-         * Lock-input specific actions. Makes sure the correct icon is rendered and the dom data is set.
-         */
-        renderLock: function() {
-            var locked = this.options.lockOptions.locked;
-            // always enable front icon
-            this.sandbox.dom.addClass(this.sandbox.dom.find('a', this.input.$front), constants.linkClickableClass);
-            this.renderLockIcon();
-            this.$el.data('locked', locked);
-        },
-
-        /**
-         * Gets called, when front icon of lock-input is clicked.
-         *
-         * @param {Object} event
-         */
-        lockClickedCallback: function(event) {
-
-            if (this.options.disabled === true) {
-                return;
-            }
-
-            var locked = !this.options.lockOptions.locked;
-
-            // set options value
-            this.options.lockOptions.locked = locked;
-            // en/disable input
-            this.sandbox.dom.prop(this.input.$input, 'disabled', locked);
-            // render appropiate icon
-            this.renderLockIcon();
-            // set data
-            this.$el.data('locked', locked);
-
-            // trigger event
-            if (locked) {
-                this.sandbox.emit(LOCKED.call(this));
-                event.stopPropagation();
-            } else {
-                this.sandbox.emit(UNLOCKED.call(this));
-            }
-        },
-
-        /**
-         * Renders the appropiate locked icon.
-         */
-        renderLockIcon: function() {
-            var removeIcon = constants.lockIconClass,
-                addIcon = constants.unlockIconClass;
-
-            if (this.options.lockOptions.locked) {
-                removeIcon = constants.unlockIconClass;
-                addIcon = constants.lockIconClass;
-            }
-
-            this.exchangeFrontIconClass(addIcon, removeIcon);
-        },
-
-        /**
-         * Exchanges a icon class with another.
-         *
-         * @param {String} addClass
-         * @param {String} removeClass
-         */
-        exchangeFrontIconClass: function(addClass, removeClass) {
-            var selector = this.sandbox.dom.find('a', this.input.$front);
-            this.sandbox.dom.removeClass(selector, removeClass);
-            this.sandbox.dom.addClass(selector, addClass);
-
-            // if clickable-class is set, set it behind icon class
-            if (this.sandbox.dom.hasClass(selector, constants.linkClickableClass)) {
-                this.sandbox.dom.removeClass(selector, constants.linkClickableClass);
-                this.sandbox.dom.addClass(selector, constants.linkClickableClass);
-            }
         },
 
         /**
@@ -45213,17 +45077,13 @@ define('__component__$data-navigation@husky',[
             return createEventName.call(this, 'initialized');
         },
 
-        SELECT = function() {
-            return createEventName.call(this, 'select');
-        },
-
         /**
          * raised after the item was selected
          * @param item {Object} selected item
          * @event husky.data-navigation.select
          */
-        SELECTED = function() {
-            return createEventName.call(this, 'selected')
+        SELECT = function() {
+            return createEventName.call(this, 'select')
         },
 
         /**
@@ -45231,8 +45091,8 @@ define('__component__$data-navigation@husky',[
          * @param item {Object} selected item
          * @event husky.data-navigation.select
          */
-        SELECTED_GLOBAL = function() {
-            return eventNamespace + 'selected';
+        SELECT_GLOBAL = function() {
+            return eventNamespace + 'select';
         },
 
         /**
@@ -45460,16 +45320,12 @@ define('__component__$data-navigation@husky',[
                 }
             }.bind(this));
 
-            this.sandbox.on(SELECT.call(this), function(id) {
-                this.showChildren(id);
-            }.bind(this));
-
             this.sandbox.on(SHOW_ADD_BUTTON.call(this), this.showAddButton.bind(this));
 
             this.sandbox.on(HIDE_ADD_BUTTON.call(this), this.hideAddButton.bind(this));
 
-            this.sandbox.on(RELOAD.call(this), function(callback) {
-                this.setUrl(this.getCurrentUrl(), true, callback);
+            this.sandbox.on(RELOAD.call(this), function() {
+                this.setUrl(this.getCurrentUrl(), true);
             }.bind(this));
 
             this.sandbox.on(CLEAR_CACHE.call(this), function() {
@@ -45499,7 +45355,7 @@ define('__component__$data-navigation@husky',[
             return url;
         },
 
-        setUrl: function(url, clearCache, callback) {
+        setUrl: function(url, clearCache) {
             if (!!clearCache) {
                 this.cache.deleteAll();
             }
@@ -45509,9 +45365,6 @@ define('__component__$data-navigation@husky',[
                 .then(function(data) {
                     this.updateHeader(data);
                     this.currentView.render(data, this.options);
-                    if (typeof callback === 'function') {
-                        callback.call(this);
-                    }
                 }.bind(this));
         },
 
@@ -45631,7 +45484,7 @@ define('__component__$data-navigation@husky',[
                 item, url;
 
             if (!data) {
-                if (id === constants.ROOT_ID || id == null) {
+                if (id === constants.ROOT_ID) {
                     if (!!this.data.parent) {
                         url = this.data.parent._links[this.options.childrenLinkKey].href;
                     } else {
@@ -45666,13 +45519,13 @@ define('__component__$data-navigation@husky',[
         },
 
         /**
-         * Show the children for the item with the given id
-         *
-         * @param id
-         * @returns {*}
+         * @method openChildrenHandler
+         * @param {Object} event
          */
-        showChildren: function(id) {
-            var oldView = this.currentView;
+        openChildrenHandler: function(event) {
+            var $item = $(event.currentTarget).closest('li'),
+                id = $item.data('id'),
+                oldView = this.currentView;
 
             this.clearSearch();
             this.currentView = this.createView();
@@ -45683,14 +45536,6 @@ define('__component__$data-navigation@husky',[
                     this.updateHeader(data);
                     this.currentView.render(data, this.options);
                 }.bind(this));
-        },
-
-        /**
-         * @method openChildrenHandler
-         * @param {Object} event
-         */
-        openChildrenHandler: function(event) {
-            return this.showChildren($(event.currentTarget).closest('li').data('id'));
         },
 
         /**
@@ -45718,9 +45563,9 @@ define('__component__$data-navigation@husky',[
         selectParentDataHandler: function(event) {
             event.stopPropagation();
 
-            this.sandbox.emit(SELECTED.call(this), this.data.parent);
+            this.sandbox.emit(SELECT.call(this), this.data.parent);
             if (this.options.globalEvents) {
-                this.sandbox.emit(SELECTED_GLOBAL.call(this), this.data.parent);
+                this.sandbox.emit(SELECT_GLOBAL.call(this), this.data.parent);
             }
 
             this.openParentHandler(event);
@@ -45747,9 +45592,9 @@ define('__component__$data-navigation@husky',[
                 id = $item.data('id'),
                 item = this.getItem(id);
 
-            this.sandbox.emit(SELECTED.call(this), item);
+            this.sandbox.emit(SELECT.call(this), item);
             if (this.options.globalEvents) {
-                this.sandbox.emit(SELECTED_GLOBAL.call(this), item);
+                this.sandbox.emit(SELECT_GLOBAL.call(this), item);
             }
 
             this.openChildrenHandler(event);
@@ -50316,9 +50161,6 @@ define("datepicker-zh-TW", function(){});
                     },
                     getTimePatter: function() {
                         return Globalize.culture().calendar.patterns.t;
-                    },
-                    setCurrency: function(symbol) {
-                        Globalize.culture().numberFormat.currency.symbol = symbol;
                     }
                 };
 
@@ -50462,8 +50304,6 @@ define("datepicker-zh-TW", function(){});
 
                     app.setLanguage(app.config.culture.name, app.config.culture.messages);
                 }
-
-                app.sandbox.globalize.setCurrency('');
             }
         };
     });

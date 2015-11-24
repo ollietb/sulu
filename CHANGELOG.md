@@ -2,6 +2,7 @@ CHANGELOG for Sulu
 ==================
 
 * dev-develop
+    * FEATURE     #1808 [ContentBundle]   Implemented content repository to query simple content fast
     * BUGFIX      #1820 [ContentBundle]   Fixed migrate url script
     * BUGFIX      #1815 [SecurityBundle]  Fixed missing locale check for security
     * BUGFIX      #1812 [ContactBundle]   Fixed translation bug in position dropdown

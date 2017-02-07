@@ -8,9 +8,11 @@
  */
 
 define([
+    'config',
     'sulucontent/components/open-ghost-overlay/main',
-    'sulusecurity/services/security-checker'
-], function(OpenGhost, SecurityChecker) {
+    'sulusecurity/services/security-checker',
+    'sulucontent/services/user-settings'
+], function(Config, OpenGhost, SecurityChecker, UserSettings) {
 
     'use strict';
 
@@ -110,7 +112,7 @@ define([
         },
 
         /**
-         * Enaber for ORDER
+         * Enabler for ORDER
          * @param column
          * @returns {boolean}
          */
@@ -124,7 +126,9 @@ define([
                 }
             });
 
-            return column.numberItems > 1 && editChildrenPermission && checkParentSecurity(column, 'edit');
+            return column.numberItems > 1
+                && editChildrenPermission
+                && checkParentSecurity(column, 'edit', this.options.webspace);
         },
 
         /**
@@ -133,23 +137,26 @@ define([
          * @returns {boolean}
          */
         addButtonEnabler = function(column) {
-            return checkParentSecurity(column, 'add');
+            return checkParentSecurity(column, 'add', this.options.webspace);
         },
 
         /**
          * Checks if the selected item in the parent column has the given permission
          * @param column
          * @param permission
+         * @param webspace
          * @returns {boolean}
          */
-        checkParentSecurity = function(column, permission) {
+        checkParentSecurity = function(column, permission, webspace) {
             if (!!column.parent) {
                 if (!!column.parent.hasOwnProperty('_permissions')) {
                     return column.parent._permissions[permission];
                 }
 
                 if (!column.parent.selectedItem) {
-                    return true;
+                    var config = Config.get('sulu_security.contexts')['sulu.webspaces.' + webspace];
+
+                    return !!config[permission];
                 }
             }
 
@@ -173,6 +180,7 @@ define([
             this.sandbox.sulu.triggerDeleteSuccessLabel();
 
             this.showGhostPages = true;
+            this.showWebspaceNode = false;
             this.setShowGhostPages();
         },
 
@@ -184,6 +192,13 @@ define([
             if (showGhostPages !== null) {
                 this.showGhostPages = JSON.parse(showGhostPages);
             }
+        },
+
+        /**
+         * Sets the showWebspaceNode variable
+         */
+        setShowWebspaceNode: function(show) {
+            this.showWebspaceNode = show;
         },
 
         /**
@@ -200,7 +215,6 @@ define([
                     return;
                 }
 
-                this.setLastSelected(item.id);
                 if (!item.type || item.type.name !== 'ghost') {
                     this.sandbox.emit('sulu.content.contents.load', item);
                 } else {
@@ -305,30 +319,6 @@ define([
         },
 
         /**
-         * starts overlay and column-navigation and registers important event handler
-         * @param {Object} item item selected in column-navigation
-         * @param {Function} editCallback called for clicking a node in tree
-         * @param {String} title translation key part ('content.contents.settings.<<title>>.title')
-         */
-        moveOrCopySelected: function(item, editCallback, title) {
-            // wait for overlay initialized to initialize overlay
-            this.sandbox.once('husky.overlay.node.initialized', function() {
-                this.startOverlayColumnNavigation(item.id);
-                this.startOverlayLoader();
-            }.bind(this));
-
-            // wait for click on column navigation to send request
-            this.sandbox.once('husky.column-navigation.overlay.action', editCallback);
-
-            // wait for closing overlay to unbind events
-            this.sandbox.once('husky.overlay.node.closed', function() {
-                this.sandbox.off('husky.column-navigation.overlay.action', editCallback);
-            }.bind(this));
-
-            this.startOverlay('content.contents.settings.' + title + '.title', templates.columnNavigation(), false);
-        },
-
-        /**
          * delete item in content tree
          * @param {Object} item item selected in column-navigation
          */
@@ -341,61 +331,42 @@ define([
         },
 
         /**
-         * render a table with given items in given container
-         * @param {String|Object} domId
-         * @param {Array} items
-         * @param {String} exclude
+         * register callback event handler and start overlay with column-navigation
+         * @param {Object} item item selected in column-navigation
+         * @param {Function} editCallback called for clicking a node in tree
+         * @param {String} title translation key part ('content.contents.settings.<<title>>.title')
          */
-        renderOverlayTable: function(domId, items, exclude) {
-            var $container = this.sandbox.dom.find(domId),
-                html = ['<ul class="order-table">'], template, id, item;
+        moveOrCopySelected: function(item, editCallback, title) {
+            // wait for closing overlay to unbind events
+            this.sandbox.once('husky.overlay.node.closed', function() {
+                this.sandbox.off('husky.column-navigation.overlay.action', editCallback);
+            }.bind(this));
 
-            for (id in items) {
-                if (items.hasOwnProperty(id) && id !== exclude) {
-                    item = items[id];
-                    html.push(
-                        '<li data-id="' + item.id + '" data-path="' + item.path + '">' +
-                        '   <span class="node-name">' + this.sandbox.util.cropMiddle(item.title, 35) + '</span>' +
-                        '   <span class="options-select"><i class="fa fa-arrow-up pointer"></i></span>' +
-                        '</li>'
-                    );
-                }
-            }
-            html.push('</ul>');
-            template = html.join('');
-
-            this.sandbox.dom.append($container, template);
+            this.startColumnNavigationOverlay(
+                'content.contents.settings.' + title + '.title',
+                templates.columnNavigation(),
+                item,
+                editCallback
+            );
         },
 
         /**
-         * start a new overlay
+         * start a new column navigation overlay
          * @param {String} titleKey translation key
          * @param {String} template template for the content
-         * @param {Boolean} okButton
-         * @param {undefined|String} instanceName
-         * @param {undefined|function} okCallback
+         * @param {Object} item item selected in main column-navigation
          */
-        startOverlay: function(titleKey, template, okButton, instanceName, okCallback) {
-            if (!instanceName) {
-                instanceName = 'node';
-            }
+        startColumnNavigationOverlay: function(titleKey, template, item, editCallback) {
+            // wait for overlay initialized to initialize column navigation
+            this.sandbox.once('husky.overlay.node.initialized', function() {
+                this.startOverlayColumnNavigation(item.id);
+                this.startOverlayLoader();
+            }.bind(this));
 
+            // prepare and start overlay
             var $element = this.sandbox.dom.createElement('<div class="overlay-container"/>'),
-                buttons = [
-                    {
-                        type: 'cancel',
-                        align: 'right'
-                    }
-                ];
+                buttons = [{type: 'cancel', align: 'left'}, {type: 'ok', align: 'right'}];
             this.sandbox.dom.append(this.$el, $element);
-
-            if (!!okButton) {
-                buttons.push({
-                    type: 'ok',
-                    align: 'left',
-                    text: this.sandbox.translate('content.contents.settings.' + instanceName + '.ok')
-                });
-            }
 
             this.sandbox.start([
                 {
@@ -403,19 +374,26 @@ define([
                     options: {
                         openOnStart: true,
                         removeOnClose: true,
-                        cssClass: 'node',
                         el: $element,
                         container: this.$el,
-                        instanceName: instanceName,
-                        skin: 'wide',
-                        slides: [
-                            {
-                                title: this.sandbox.translate(titleKey),
-                                data: template,
-                                buttons: buttons,
-                                okCallback: okCallback
-                            }
-                        ]
+                        instanceName: 'node',
+                        skin: 'responsive-width',
+                        contentSpacing: false,
+                        title: this.sandbox.translate(titleKey),
+                        data: template,
+                        buttons: buttons,
+                        cancelCallback: function() {
+                            this.sandbox.stop('#child-column-navigation');
+                        }.bind(this),
+                        okCallback: function () {
+                            this.sandbox.emit('husky.column-navigation.overlay.get-marked', function (collections) {
+                                this.sandbox.stop('#child-column-navigation');
+                                if (Object.keys(collections).length === 1) {
+                                    var value = collections[Object.keys(collections)];
+                                    editCallback(value);
+                                }
+                            }.bind(this));
+                        }.bind(this)
                     }
                 }
             ]);
@@ -426,6 +404,7 @@ define([
          * @param {String} id of selected item
          */
         startOverlayColumnNavigation: function(id) {
+            this.setShowWebspaceNode(true);
             var url = this.getUrl(id);
 
             this.sandbox.start(
@@ -441,14 +420,14 @@ define([
                             hasSubName: 'hasChildren',
                             url: url,
                             instanceName: 'overlay',
-                            actionIcon: 'fa-check-circle',
                             showOptions: false,
-                            showStatus: false,
                             responsive: false,
                             sortable: false,
                             skin: 'fixed-height-small',
                             disableIds: [id],
-                            disabledChildren: true
+                            disabledChildren: true,
+                            markable: true,
+                            singleMarkable: true
                         }
                     }
                 ]
@@ -496,7 +475,7 @@ define([
          */
         restartColumnNavigation: function() {
             this.sandbox.stop('#content-column');
-
+            this.setShowWebspaceNode(false);
             this.startColumnNavigation();
         },
 
@@ -519,7 +498,10 @@ define([
                         typeName: 'type',
                         hasSubName: 'hasChildren',
                         url: this.getUrl(this.getLastSelected()),
+                        fallbackUrl: this.getUrl(),
                         actionIcon: getActionIcon.bind(this),
+                        showActionButtonOnGhost: true,
+                        actionButtonOnGhostText: this.sandbox.translate('sulu-content.create'),
                         addButton: addButtonEnabler.bind(this),
                         data: [
                             {
@@ -581,7 +563,7 @@ define([
          * @param {String} id
          */
         setLastSelected: function(id) {
-            this.sandbox.sulu.saveUserSetting(this.options.webspace + 'ColumnNavigationSelected', id);
+            UserSettings.setLastSelectedPage(this.options.webspace , id);
         },
 
         /**
@@ -601,10 +583,14 @@ define([
                 urlParts = [
                     'webspace=' + this.options.webspace,
                     'language=' + this.options.language,
-                    'fields=title,order',
+                    'fields=title,order,published',
                     'exclude-ghosts=' + (!this.showGhostPages ? 'true' : 'false'),
                     'exclude-shadows=' + (!this.showGhostPages ? 'true' : 'false')
                 ];
+
+           if(!!this.showWebspaceNode){
+               urlParts.push('webspace-nodes=single');
+           }
 
             if (!!selected) {
                 url += '/' + selected;
@@ -635,33 +621,5 @@ define([
                 this.startColumnNavigation();
             }.bind(this));
         },
-
-        openGhost: function(item) {
-            this.startOverlay(
-                'content.contents.settings.copy-locale.title',
-                templates.openGhost.call(this), true, 'copy-locale-overlay',
-                function() {
-                    var copy = this.sandbox.dom.prop('#copy-locale-copy', 'checked'),
-                        src = this.sandbox.dom.data('#copy-locale-overlay-select', 'selectionValues'),
-                        dest = this.options.language;
-
-                    if (!!copy) {
-                        if (!src || src.length === 0) {
-                            return false;
-                        }
-
-                        this.sandbox.emit('sulu.content.contents.copy-locale', item.id, src[0], [dest], function() {
-                            this.sandbox.emit('sulu.content.contents.load', item);
-                        }.bind(this));
-                    } else {
-                        this.sandbox.emit('sulu.content.contents.load', item);
-                    }
-                }.bind(this)
-            );
-
-            this.sandbox.once('husky.select.copy-locale-to.selected.item', function() {
-                this.sandbox.dom.prop('#copy-locale-copy', 'checked', true);
-            }.bind(this));
-        }
     };
 });

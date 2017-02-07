@@ -1,4 +1,5 @@
 <?php
+
 /*
  * This file is part of Sulu.
  *
@@ -13,6 +14,7 @@ namespace Sulu\Component\Content\Repository;
 use Hateoas\Configuration\Annotation\Embedded;
 use Hateoas\Configuration\Annotation\Relation;
 use Hateoas\Configuration\Annotation\Route;
+use Jackalope\Query\Row;
 use JMS\Serializer\Annotation\ExclusionPolicy;
 use JMS\Serializer\Annotation\Expose;
 use Sulu\Component\Content\Compat\StructureType;
@@ -97,6 +99,30 @@ class Content implements \ArrayAccess
      */
     private $localizationType;
 
+    /**
+     * @var string
+     *
+     * @Expose
+     */
+    private $url;
+
+    /**
+     * @var string[]
+     */
+    private $urls;
+
+    /**
+     * @var string[]
+     *
+     * @Expose
+     */
+    private $concreteLanguages;
+
+    /**
+     * @var Row
+     */
+    private $row;
+
     public function __construct(
         $locale,
         $webspaceKey,
@@ -143,6 +169,23 @@ class Content implements \ArrayAccess
     public function getData()
     {
         return $this->data;
+    }
+
+    /**
+     * Returns value for given property or given default.
+     *
+     * @param string $name
+     * @param mixed $default
+     *
+     * @return mixed
+     */
+    public function getPropertyWithDefault($name, $default = null)
+    {
+        if (!array_key_exists($name, $this->data)) {
+            return $default;
+        }
+
+        return $this->data[$name];
     }
 
     /**
@@ -226,9 +269,76 @@ class Content implements \ArrayAccess
         return $this->children;
     }
 
+    /**
+     * @return Row
+     */
+    public function getRow()
+    {
+        return $this->row;
+    }
+
+    /**
+     * @param Row $row
+     */
+    public function setRow(Row $row)
+    {
+        $this->row = $row;
+    }
+
+    /**
+     * @return string[]
+     */
     public function getMapping()
     {
         return implode(',', array_keys($this->data));
+    }
+
+    /**
+     * @return \string[]
+     */
+    public function getUrls()
+    {
+        return $this->urls;
+    }
+
+    /**
+     * @param \string[] $urls
+     */
+    public function setUrls(array $urls)
+    {
+        $this->urls = $urls;
+    }
+
+    /**
+     * @return string
+     */
+    public function getUrl()
+    {
+        return $this->url;
+    }
+
+    /**
+     * @param string $url
+     */
+    public function setUrl($url)
+    {
+        $this->url = $url;
+    }
+
+    /**
+     * @return \string[]
+     */
+    public function getConcreteLanguages()
+    {
+        return $this->concreteLanguages;
+    }
+
+    /**
+     * @param \string[] $concreteLanguages
+     */
+    public function setConcreteLanguages($concreteLanguages)
+    {
+        $this->concreteLanguages = $concreteLanguages;
     }
 
     /**

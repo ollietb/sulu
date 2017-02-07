@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the Sulu.
+ * This file is part of Sulu.
  *
  * (c) MASSIVE ART WebServices GmbH
  *
@@ -299,7 +299,7 @@ abstract class BaseUser extends ApiEntity implements UserInterface, Serializable
      *
      * @link http://php.net/manual/en/serializable.unserialize.php
      *
-     * @param string $serialized The string representation of the object.
+     * @param string $serialized The string representation of the object
      */
     public function unserialize($serialized)
     {
@@ -345,9 +345,7 @@ abstract class BaseUser extends ApiEntity implements UserInterface, Serializable
     }
 
     /**
-     * Get locked.
-     *
-     * @return bool
+     * {@inheritdoc}
      */
     public function getLocked()
     {
@@ -369,9 +367,7 @@ abstract class BaseUser extends ApiEntity implements UserInterface, Serializable
     }
 
     /**
-     * Get enabled.
-     *
-     * @return bool
+     * {@inheritdoc}
      */
     public function getEnabled()
     {

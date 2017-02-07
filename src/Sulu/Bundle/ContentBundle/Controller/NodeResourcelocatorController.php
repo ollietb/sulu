@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the Sulu.
+ * This file is part of Sulu.
  *
  * (c) MASSIVE ART WebServices GmbH
  *
@@ -12,12 +12,13 @@
 namespace Sulu\Bundle\ContentBundle\Controller;
 
 use FOS\RestBundle\Routing\ClassResourceInterface;
-use PHPCR\SessionInterface;
 use Sulu\Bundle\ContentBundle\Repository\ResourceLocatorRepositoryInterface;
-use Sulu\Component\Content\Structure;
+use Sulu\Component\DocumentManager\DocumentManagerInterface;
+use Sulu\Component\Rest\Exception\MissingArgumentException;
 use Sulu\Component\Rest\RequestParametersTrait;
 use Sulu\Component\Rest\RestController;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * handles resource locator api.
@@ -29,28 +30,21 @@ class NodeResourcelocatorController extends RestController implements ClassResou
     /**
      * return resource-locator for sub-node.
      *
-     * @throws \Sulu\Component\Rest\Exception\MissingArgumentException
+     * @throws MissingArgumentException
      *
-     * @return \Symfony\Component\HttpFoundation\Response
+     * @return Response
      */
-    public function postGenerateAction()
+    public function postGenerateAction(Request $request)
     {
-        $parentUuid = $this->getRequestParameter($this->getRequest(), 'parent');
-        $uuid = $this->getRequestParameter($this->getRequest(), 'uuid');
-        $parts = $this->getRequestParameter($this->getRequest(), 'parts', true);
-        $templateKey = $this->getRequestParameter($this->getRequest(), 'template', true);
-
-        list($webspaceKey, $languageCode) = $this->getWebspaceAndLanguage();
-        if ($templateKey === null) {
-            $webspaceManager = $this->container->get('sulu_core.webspace.webspace_manager');
-            $webspace = $webspaceManager->findWebspaceByKey($webspaceKey);
-            $templateKey = $webspace->getTheme()->getDefaultTemplate(Structure::TYPE_PAGE);
-        }
+        $parentUuid = $this->getRequestParameter($request, 'parent');
+        $parts = $this->getRequestParameter($request, 'parts', true);
+        $templateKey = $this->getRequestParameter($request, 'template', true);
+        $webspaceKey = $this->getRequestParameter($request, 'webspace', true);
+        $languageCode = $this->getLocale($request);
 
         $result = $this->getResourceLocatorRepository()->generate(
             $parts,
             $parentUuid,
-            $uuid,
             $webspaceKey,
             $languageCode,
             $templateKey
@@ -64,7 +58,7 @@ class NodeResourcelocatorController extends RestController implements ClassResou
      *
      * @param string $uuid
      *
-     * @return \Symfony\Component\HttpFoundation\Response
+     * @return Response
      */
     public function cgetAction($uuid)
     {
@@ -77,7 +71,7 @@ class NodeResourcelocatorController extends RestController implements ClassResou
     /**
      * deletes resource locator with given path.
      *
-     * @return \Symfony\Component\HttpFoundation\Response
+     * @return Response
      */
     public function deleteAction()
     {
@@ -85,27 +79,9 @@ class NodeResourcelocatorController extends RestController implements ClassResou
         $path = $this->getRequestParameter($this->getRequest(), 'path', true);
 
         $this->getResourceLocatorRepository()->delete($path, $webspaceKey, $languageCode);
-        $this->getSession()->save();
+        $this->getDocumentManager()->flush();
 
         return $this->handleView($this->view());
-    }
-
-    /**
-     * restores url with given path.
-     *
-     * @param Request $request
-     *
-     * @return \Symfony\Component\HttpFoundation\Response
-     */
-    public function putRestoreAction(Request $request)
-    {
-        list($webspaceKey, $languageCode) = $this->getWebspaceAndLanguage();
-        $path = $this->getRequestParameter($request, 'path', true);
-
-        $result = $this->getResourceLocatorRepository()->restore($path, $this->getUser()->getId(), $webspaceKey, $languageCode);
-        $this->getSession()->save();
-
-        return $this->handleView($this->view($result));
     }
 
     /**
@@ -130,10 +106,18 @@ class NodeResourcelocatorController extends RestController implements ClassResou
     }
 
     /**
-     * @return SessionInterface
+     * @return DocumentManagerInterface
      */
-    private function getSession()
+    private function getDocumentManager()
     {
-        return $this->get('doctrine_phpcr.default_session');
+        return $this->get('sulu_document_manager.document_manager');
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getLocale(Request $request)
+    {
+        return $this->getRequestParameter($request, 'language', true);
     }
 }

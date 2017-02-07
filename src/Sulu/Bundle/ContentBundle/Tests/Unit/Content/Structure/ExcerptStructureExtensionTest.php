@@ -1,4 +1,5 @@
 <?php
+
 /*
  * This file is part of Sulu.
  *
@@ -16,6 +17,8 @@ use Sulu\Bundle\SearchBundle\Search\Factory;
 use Sulu\Component\Content\Compat\StructureInterface;
 use Sulu\Component\Content\Compat\StructureManagerInterface;
 use Sulu\Component\Content\ContentTypeManagerInterface;
+use Sulu\Component\Content\Export\ContentExportManagerInterface;
+use Sulu\Component\Content\Import\ContentImportManagerInterface;
 
 class ExcerptStructureExtensionTest extends \PHPUnit_Framework_TestCase
 {
@@ -35,10 +38,14 @@ class ExcerptStructureExtensionTest extends \PHPUnit_Framework_TestCase
         $contentTypeManager = $this->prophesize(ContentTypeManagerInterface::class);
         $factory = $this->prophesize(Factory::class);
         $node = $this->prophesize(NodeInterface::class);
+        $contentExportManager = $this->prophesize(ContentExportManagerInterface::class);
+        $contentImportManager = $this->prophesize(ContentImportManagerInterface::class);
 
         $excerptExtension = new ExcerptStructureExtension(
             $structureManager->reveal(),
             $contentTypeManager->reveal(),
+            $contentExportManager->reveal(),
+            $contentImportManager->reveal(),
             $factory->reveal()
         );
 
@@ -61,10 +68,14 @@ class ExcerptStructureExtensionTest extends \PHPUnit_Framework_TestCase
         $contentTypeManager = $this->prophesize(ContentTypeManagerInterface::class);
         $factory = $this->prophesize(Factory::class);
         $node = $this->prophesize(NodeInterface::class);
+        $contentExportManager = $this->prophesize(ContentExportManagerInterface::class);
+        $contentImportManager = $this->prophesize(ContentImportManagerInterface::class);
 
         $excerptExtension = new ExcerptStructureExtension(
             $structureManager->reveal(),
             $contentTypeManager->reveal(),
+            $contentExportManager->reveal(),
+            $contentImportManager->reveal(),
             $factory->reveal()
         );
 

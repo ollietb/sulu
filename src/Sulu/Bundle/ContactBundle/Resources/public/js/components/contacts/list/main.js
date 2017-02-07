@@ -105,7 +105,15 @@ define([
             toolbar: {
                 buttons: {
                     add: {},
-                    deleteSelected: {}
+                    deleteSelected: {},
+                    export: {
+                        options: {
+                            urlParameter: {
+                                flat: true
+                            },
+                            url: '/admin/api/contacts.csv'
+                        }
+                    }
                 }
             }
         },
@@ -145,9 +153,9 @@ define([
         getDatagridConfig: function() {
             return {
                 el: this.sandbox.dom.find('#people-list', this.$el),
-                url: '/admin/api/contacts?flat=true',
+                url: '/admin/api/contacts?flat=true&sortBy=fullName&sortOrder=asc',
                 searchInstanceName: 'contacts',
-                searchFields: ['fullName'],
+                searchFields: ['fullName', 'mainEmail'],
                 resultKey: 'contacts',
                 instanceName: constants.datagridInstanceName,
                 actionCallback: actionCallback.bind(this),
